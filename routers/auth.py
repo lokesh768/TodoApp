@@ -12,7 +12,7 @@ from jose import jwt, JWTError
 
 router = APIRouter(
     prefix='/auth',
-    tags = ['uth']
+    tags = ['auth']
 )
 
 SECRET_KEY = 'ae8e9950a54946a1c53864230ece4a04d8bda8fbb4017819c5697ff981548445'
@@ -45,10 +45,11 @@ async def get_current_user(token:Annotated[str,Depends(oauth2_bearer)]):
         payload = jwt.decode(token,SECRET_KEY, algorithms=[ALGORITHM])
         username:str = payload.get('sub')
         user_id:int = payload.get('id')
+        user_role:str = payload.get('role')
         if username is None or user_id is None:
             return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                  detail='Could not validate User..')
-        return {'username':username,'id':user_id}
+        return {'username':username,'id':user_id,'role':user_role}
     except JWTError:
         return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                  detail='Could not validate User..')
@@ -61,10 +62,11 @@ def authenticate_user(username:str,password:str,db):
         return False
     return user
 
-def create_access_token(username:str,user_id:int,expires_delta:timedelta):
+def create_access_token(username:str,user_id:int,role:str,expires_delta:timedelta):
     encode = {
         'sub':username,
-        'id':user_id
+        'id':user_id,
+        'role':role
     }
     expires = datetime.now(timezone.utc) + expires_delta
     encode.update({'exp':expires})
@@ -94,5 +96,5 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     if not user:
         return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                              detail='Could not validate User..')
-    token = create_access_token(user.username,user.id,timedelta(minutes=20))
+    token = create_access_token(user.username,user.id,user.role,timedelta(minutes=20))
     return {'access_token':token, 'token_type':'bearer'}
